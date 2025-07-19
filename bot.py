@@ -1,25 +1,36 @@
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from telegram.ext import MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackQueryHandler
+from flask import Flask
+import threading
+import os
 
-# Tu TOKEN del bot
-TOKEN = '7643585666:AAFpCxF2rbnPx5hhfcAPFQ_TGYu2hpUZhjk'
-ADMIN_ID = 6605787552 # Tu ID personal de Telegram
+# Flask app para el mini servidor web
+app = Flask(__name__)
 
-solicitudes_pendientes = {}  # user_id: correo
+@app.route('/')
+def home():
+    return "Bot activo y funcionando!"
 
-# Lista de correos permitidos
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))  # Render asigna el puerto aquí
+    app.run(host='0.0.0.0', port=port)
+
+# Aquí va todo tu código de comandos, handlers, etc.
+TOKEN = os.getenv("7643585666:AAFpCxF2rbnPx5hhfcAPFQ_TGYu2hpUZhjk")  # Usa variable de entorno para seguridad
+ADMIN_ID = 6605787552
+
+solicitudes_pendientes = {}
+
 CORREOS_AUTORIZADOS = [
     "sestgo19@gmail.com",
     "sestgo22@gmail.com",
-    "sestgo6@gmail.com" ,
+    "sestgo6@gmail.com",
     "sestgo11@gmail.com"
 ]
 
-# /buscar comando con verificación
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # /buscar comando con verificación
     user = update.effective_user
     args = context.args
 
@@ -47,8 +58,8 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔎 Correo validado ✅\nAhora elige la opción:",
         reply_markup=teclado
     )
+    pass
 
-# Respuesta a la opción elegida
 async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -80,8 +91,8 @@ async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🛠️ Opción elegida: {texto_opcion}"
         )
     )
+    pass
 
-# Función para que el admin envíe códigos usando /enviar
 async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ No tienes permiso para usar este comando.")
@@ -97,9 +108,9 @@ async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bot = Bot(token=TOKEN)
     await bot.send_message(chat_id=user_id, text=f"✅ La respuesta a tu solicitud es: {codigo}")
-    await update.message.reply_text("📤 Datos enviados.")  
+    await update.message.reply_text("📤 Datos enviados.")
+    pass
 
-# Función para el comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 ¡Hola! Bienvenido al bot de SestGo.\n\n"
@@ -108,8 +119,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Para tu solicitud.\n\n"
         "🔐 Tu solicitud será atendida lo antes posible."
     )
+    pass
 
-# Función para mensajes no reconocidos
 async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "❗ No entendí ese mensaje.\n\n"
@@ -118,16 +129,23 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
         "/buscar\n"
         "/ayuda\n"
     )# Función para mensajes no reconocidoss
+    pass
 
-# Ejecutar el bot
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("buscar", buscar))
-app.add_handler(CallbackQueryHandler(opcion_elegida))
-app.add_handler(CommandHandler("enviar", enviar))
-app.add_handler(CommandHandler("start", start))
-# Captura cualquier texto que NO sea comando
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
+def main():
+    # Arrancar servidor Flask en hilo separado
+    threading.Thread(target=run_flask).start()
 
+    # Crear la app de Telegram y agregar handlers
+    app_telegram = ApplicationBuilder().token(TOKEN).build()
+    app_telegram.add_handler(CommandHandler("buscar", buscar))
+    app_telegram.add_handler(CallbackQueryHandler(opcion_elegida))
+    app_telegram.add_handler(CommandHandler("enviar", enviar))
+    app_telegram.add_handler(CommandHandler("start", start))
+    from telegram.ext import MessageHandler, filters
+    app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
 
-print("🤖 Bot iniciado...")
-app.run_polling()
+    print("🤖 Bot iniciado...")
+    app_telegram.run_polling()
+
+if __name__ == "__main__":
+    main()
