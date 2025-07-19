@@ -130,6 +130,8 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
 def main():
     threading.Thread(target=run_flask).start()
 
+    print(f"TOKEN cargado: {TOKEN}")
+
     app_telegram = ApplicationBuilder().token(TOKEN).build()
 
     app_telegram.add_handler(CommandHandler("buscar", buscar))
