@@ -1,23 +1,22 @@
-from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 from flask import Flask
 import threading
 import os
 
-# Flask app para el mini servidor web
+# --- Servidor Flask (para Render) ---
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot activo y funcionando!"
+    return "Bot activo y funcionando."
 
 def run_flask():
-    port = int(os.environ.get("PORT", 5000))  # Render asigna el puerto aquí
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
 
-# Aquí va todo tu código de comandos, handlers, etc.
-TOKEN = os.getenv("7643585666:AAFpCxF2rbnPx5hhfcAPFQ_TGYu2hpUZhjk")  # Usa variable de entorno para seguridad
+# --- Configuración del bot ---
+TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
@@ -29,8 +28,9 @@ CORREOS_AUTORIZADOS = [
     "sestgo11@gmail.com"
 ]
 
+# --- Funciones del bot ---
+
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # /buscar comando con verificación
     user = update.effective_user
     args = context.args
 
@@ -58,7 +58,6 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔎 Correo validado ✅\nAhora elige la opción:",
         reply_markup=teclado
     )
-    pass
 
 async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -77,10 +76,8 @@ async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     texto_opcion = opciones_texto.get(opcion, opcion)
 
-    # Mensaje visible para el usuario
     await query.edit_message_text("🔍 Buscando datos... Por favor espera... Tiempo estimado (30-60 seg)...")
 
-    # Notificación al admin
     bot = Bot(token=TOKEN)
     await bot.send_message(
         chat_id=ADMIN_ID,
@@ -91,7 +88,6 @@ async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🛠️ Opción elegida: {texto_opcion}"
         )
     )
-    pass
 
 async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -100,26 +96,25 @@ async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     args = context.args
     if len(args) < 2:
-        await update.message.reply_text("❗ Usa el comando así: /enviar ID_USUARIO código_a_enviar")
+        await update.message.reply_text("❗ Usa el comando así: /enviar ID_USUARIO datos_a_enviar")
         return
 
     user_id = int(args[0])
-    codigo = ' '.join(args[1:])
+    datos = ' '.join(args[1:])
+
+    tipo_dato = "enlace" if "http" in datos else "código"
 
     bot = Bot(token=TOKEN)
-    await bot.send_message(chat_id=user_id, text=f"✅ La respuesta a tu solicitud es: {codigo}")
+    await bot.send_message(chat_id=user_id, text=f"✅ Tu {tipo_dato} es: {datos}")
     await update.message.reply_text("📤 Datos enviados.")
-    pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Bienvenido al bot de SestGo.\n\n"
+        "👋 ¡Hola! Bienvenido al bot.\n\n"
         "Usa el comando:\n"
         "/buscar correo@ejemplo.com\n"
-        "Para tu solicitud.\n\n"
-        "🔐 Tu solicitud será atendida lo antes posible."
+        "Para iniciar tu solicitud."
     )
-    pass
 
 async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -128,20 +123,19 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
         "/start\n"
         "/buscar\n"
         "/ayuda\n"
-    )# Función para mensajes no reconocidoss
-    pass
+    )
+
+# --- Función principal ---
 
 def main():
-    # Arrancar servidor Flask en hilo separado
     threading.Thread(target=run_flask).start()
 
-    # Crear la app de Telegram y agregar handlers
     app_telegram = ApplicationBuilder().token(TOKEN).build()
+
     app_telegram.add_handler(CommandHandler("buscar", buscar))
     app_telegram.add_handler(CallbackQueryHandler(opcion_elegida))
     app_telegram.add_handler(CommandHandler("enviar", enviar))
     app_telegram.add_handler(CommandHandler("start", start))
-    from telegram.ext import MessageHandler, filters
     app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
 
     print("🤖 Bot iniciado...")
