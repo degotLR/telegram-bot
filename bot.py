@@ -26,6 +26,10 @@ CORREOS_AUTORIZADOS = [
     "sestgo19@gmail.com",
     "sestgo22@gmail.com",
     "sestgo6@gmail.com",
+    "sestgo26@gmail.com",
+    "sestgobo2@gmail.com",
+    "sestgobo3@gmail.com",
+    "sestgobo4@gmail.com",
     "sestgo11@gmail.com"
 ]
 
