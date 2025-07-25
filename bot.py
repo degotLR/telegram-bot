@@ -19,25 +19,25 @@ def run_flask():
 
 # --- Configuración del bot ---
 # Archivo donde se guardan los correos
-ARCHIVO_CORREOS = "correos_autorizados.json"
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
 
-def cargar_correos():
-    if os.path.exists(ARCHIVO_CORREOS):
-        with open(ARCHIVO_CORREOS, 'r') as f:
-            return set(json.load(f))  # Convertimos la lista del JSON a un set
-    else:
+CORREOS_AUTORIZADOS_FILE = 'correos_autorizados.json'
+
+def guardar_correos_autorizados(correos):
+    with open(CORREOS_AUTORIZADOS_FILE, 'w') as f:
+        json.dump(list(correos), f)
+
+def cargar_correos_autorizados():
+    try:
+        with open(CORREOS_AUTORIZADOS_FILE, 'r') as f:
+            return set(json.load(f))
+    except FileNotFoundError:
         return set()
 
-CORREOS_AUTORIZADOS = cargar_correos()
-
-# Guardar correos actualizados
-def guardar_correos():
-    with open(ARCHIVO_CORREOS, "w") as f:
-        json.dump(list(CORREOS_AUTORIZADOS), f, indent=2)
+correos_autorizados = cargar_correos_autorizados()
 
 # --- Funciones del bot ---
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -149,20 +149,19 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
 
 # Comando /add para añadir correos autorizados
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("No estás autorizado.")
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "No tienes permiso para usar este comando.")
         return
 
-    try:
-        email = context.args[0].strip()
-        if email in CORREOS_AUTORIZADOS:
-            await update.message.reply_text("Ese correo ya está autorizado.")
-        else:
-            CORREOS_AUTORIZADOS.add(email)
-            guardar_correos()
-            await update.message.reply_text(f"Correo añadido: {email}")
-    except IndexError:
-        await update.message.reply_text("Usa el formato:\n/add correo@example.com")
+    partes = message.text.split()
+    if len(partes) != 2:
+        bot.reply_to(message, "Uso correcto: /add correo@example.com")
+        return
+
+    correo = partes[1].strip().lower()
+    correos_autorizados.add(correo)
+    guardar_correos_autorizados(correos_autorizados)  # 🔥 Aquí es crucial
+    bot.reply_to(message, f"✅ Correo añadido: {correo}")
 
 
 # --- Función principal con reinicio automático ---
