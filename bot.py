@@ -4,6 +4,7 @@ from flask import Flask
 import threading
 import os
 import time
+import json
 
 # --- Servidor Flask (para Render) ---
 app = Flask(__name__)
@@ -21,24 +22,25 @@ TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
+# Ruta al archivo
+ARCHIVO_CORREOS = "correos_autorizados.json"
 
-CORREOS_AUTORIZADOS = [
-    "sestgo19@gmail.com",
-    "sestgo22@gmail.com",
-    "sestgo6@gmail.com",
-    "sestgo26@gmail.com",
-    "sestgobo2@gmail.com",
-    "sestgobo3@gmail.com",
-    "sestgobo4@gmail.com",
-    "sestgo11@gmail.com",
-    "sestgobo5@gmail.com",
-    "sestgobo6@gmail.com",
-    "sestgobo7@gmail.com",
-    "sestgobo8@gmail.com",
-    "sestgobo9@gmail.com"
-]
+# Leer correos al iniciar
+def cargar_correos():
+    try:
+        with open(ARCHIVO_CORREOS, "r") as f:
+            return set(json.load(f))
+    except FileNotFoundError:
+        return set()
+
+CORREOS_AUTORIZADOS = cargar_correos()
 
 # --- Funciones del bot ---
+
+def guardar_correos():
+    with open(ARCHIVO_CORREOS, "w") as f:
+        json.dump(list(CORREOS_AUTORIZADOS), f, indent=2)
+
 
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -148,8 +150,7 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
+    if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("No estás autorizado.")
         return
 
@@ -158,10 +159,12 @@ async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if email in CORREOS_AUTORIZADOS:
             await update.message.reply_text("Ese correo ya está autorizado.")
         else:
-            CORREOS_AUTORIZADOS.append(email)
+            CORREOS_AUTORIZADOS.add(email)
+            guardar_correos()
             await update.message.reply_text(f"Correo añadido: {email}")
     except IndexError:
         await update.message.reply_text("Usa el formato:\n/add correo@example.com")
+
 
 # --- Función principal con reinicio automático ---
 def main():
