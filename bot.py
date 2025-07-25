@@ -22,7 +22,7 @@ ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
 
-CORREOS_AUTORIZADOS = set([
+CORREOS_AUTORIZADOS = [
     "sestgo19@gmail.com",
     "sestgo22@gmail.com",
     "sestgo6@gmail.com",
@@ -36,7 +36,7 @@ CORREOS_AUTORIZADOS = set([
     "sestgobo7@gmail.com",
     "sestgobo8@gmail.com",
     "sestgobo9@gmail.com"
-])
+]
 
 # --- Funciones del bot ---
 
@@ -147,20 +147,21 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
         "/buscar\n"
     )
 
-async def add_email(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "No estás autorizado.")
+async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("No estás autorizado.")
         return
 
     try:
-        email = message.text.split(' ', 1)[1].strip()
+        email = context.args[0].strip()
         if email in CORREOS_AUTORIZADOS:
-            bot.reply_to(message, "Ese correo ya está autorizado.")
+            await update.message.reply_text("Ese correo ya está autorizado.")
         else:
-            CORREOS_AUTORIZADOS.add(email)
-            bot.reply_to(message, f"Correo añadido: {email}")
+            CORREOS_AUTORIZADOS.append(email)
+            await update.message.reply_text(f"Correo añadido: {email}")
     except IndexError:
-        bot.reply_to(message, "Usa el formato:\n/add correo@example.com")
+        await update.message.reply_text("Usa el formato:\n/add correo@example.com")
 
 # --- Función principal con reinicio automático ---
 def main():
