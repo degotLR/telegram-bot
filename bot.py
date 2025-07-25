@@ -18,30 +18,28 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 # --- Configuración del bot ---
+# Archivo donde se guardan los correos
+ARCHIVO_CORREOS = "correos_autorizados.json"
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
-# Ruta al archivo
-ARCHIVO_CORREOS = "correos_autorizados.json"
 
-# Leer correos al iniciar
 def cargar_correos():
-    try:
-        with open(ARCHIVO_CORREOS, "r") as f:
-            return set(json.load(f))
-    except FileNotFoundError:
+    if os.path.exists(ARCHIVO_CORREOS):
+        with open(ARCHIVO_CORREOS, 'r') as f:
+            return set(json.load(f))  # Convertimos la lista del JSON a un set
+    else:
         return set()
 
 CORREOS_AUTORIZADOS = cargar_correos()
 
-# --- Funciones del bot ---
-
+# Guardar correos actualizados
 def guardar_correos():
     with open(ARCHIVO_CORREOS, "w") as f:
         json.dump(list(CORREOS_AUTORIZADOS), f, indent=2)
 
-
+# --- Funciones del bot ---
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
@@ -149,6 +147,7 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
         "/buscar\n"
     )
 
+# Comando /add para añadir correos autorizados
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("No estás autorizado.")
