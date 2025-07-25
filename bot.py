@@ -30,7 +30,12 @@ CORREOS_AUTORIZADOS = [
     "sestgobo2@gmail.com",
     "sestgobo3@gmail.com",
     "sestgobo4@gmail.com",
-    "sestgo11@gmail.com"
+    "sestgo11@gmail.com",
+    "sestgobo5@gmail.com",
+    "sestgobo6@gmail.com",
+    "sestgobo7@gmail.com",
+    "sestgobo8@gmail.com",
+    "sestgobo9@gmail.com"
 ]
 
 # --- Funciones del bot ---
