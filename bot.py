@@ -22,7 +22,7 @@ ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
 
-CORREOS_AUTORIZADOS = [
+CORREOS_AUTORIZADOS = set([
     "sestgo19@gmail.com",
     "sestgo22@gmail.com",
     "sestgo6@gmail.com",
@@ -36,7 +36,7 @@ CORREOS_AUTORIZADOS = [
     "sestgobo7@gmail.com",
     "sestgobo8@gmail.com",
     "sestgobo9@gmail.com"
-]
+])
 
 # --- Funciones del bot ---
 
@@ -147,6 +147,21 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
         "/buscar\n"
     )
 
+async def add_email(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "No estás autorizado.")
+        return
+
+    try:
+        email = message.text.split(' ', 1)[1].strip()
+        if email in CORREOS_AUTORIZADOS:
+            bot.reply_to(message, "Ese correo ya está autorizado.")
+        else:
+            CORREOS_AUTORIZADOS.add(email)
+            bot.reply_to(message, f"Correo añadido: {email}")
+    except IndexError:
+        bot.reply_to(message, "Usa el formato:\n/add correo@example.com")
+
 # --- Función principal con reinicio automático ---
 def main():
     threading.Thread(target=run_flask).start()
@@ -160,6 +175,7 @@ def main():
             app_telegram.add_handler(CommandHandler("enviar", enviar))
             app_telegram.add_handler(CommandHandler("start", start))
             app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
+            app_telegram.add_handler(CommandHandler("add", add))
 
             print("🤖 Bot iniciado correctamente...")
             app_telegram.run_polling()
