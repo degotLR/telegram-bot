@@ -175,7 +175,7 @@ def main():
             app_telegram.add_handler(CommandHandler("enviar", enviar))
             app_telegram.add_handler(CommandHandler("start", start))
             app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
-            app_telegram.add_handler(CommandHandler("add", add))
+            app_telegram.add_handler(CommandHandler("add", add_email))
 
             print("🤖 Bot iniciado correctamente...")
             app_telegram.run_polling()
