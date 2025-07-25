@@ -51,7 +51,7 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         correo = args[0].lower()
 
-        if correo not in CORREOS_AUTORIZADOS:
+        if correo not in correos_autorizados:
             await update.message.reply_text("❌ Ese correo no está autorizado.")
             return
 
@@ -149,20 +149,22 @@ async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TY
 
 # Comando /add para añadir correos autorizados
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "No tienes permiso para usar este comando.")
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ No tienes permiso para usar este comando.")
         return
 
-    partes = message.text.split()
-    if len(partes) != 2:
-        bot.reply_to(message, "Uso correcto: /add correo@example.com")
+    if not context.args:
+        await update.message.reply_text("❗ Uso correcto: /add correo@example.com")
         return
 
-    correo = partes[1].strip().lower()
-    correos_autorizados.add(correo)
-    guardar_correos_autorizados(correos_autorizados)  # 🔥 Aquí es crucial
-    bot.reply_to(message, f"✅ Correo añadido: {correo}")
+    correo = context.args[0].strip().lower()
 
+    if correo in correos_autorizados:
+        await update.message.reply_text("Ese correo ya está autorizado.")
+    else:
+        correos_autorizados.add(correo)
+        guardar_correos_autorizados(correos_autorizados)
+        await update.message.reply_text(f"✅ Correo añadido: {correo}")
 
 # --- Función principal con reinicio automático ---
 def main():
