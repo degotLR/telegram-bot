@@ -36,9 +36,9 @@ def guardar_correos(data):
     with open(ARCHIVO_CORREOS, 'w') as f:
         json.dump(data, f, indent=4)
 
-def agregar_correo(correo, usuario):
+def agregar_correo(correo, codigo):
     data = obtener_correos()
-    data[correo] = usuario
+    data[correo] = codigo
     guardar_correos(data)
     return True
 
@@ -57,18 +57,22 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
         args = context.args
 
-        if not args:
-            await update.message.reply_text("❗ Usa el comando así: /buscar correo@ejemplo.com")
+        if len(args) < 2:
+            await update.message.reply_text("❗ Usa el comando así:\n/buscar correo@ejemplo.com codigo")
             return
 
         correo = args[0].lower()
+        codigo = args[1]
         correos = obtener_correos()
 
         if correo not in correos:
-            await update.message.reply_text("❌ Ese correo no está autorizado.")
+            await update.message.reply_text("🚫 Correo no autorizado.")
             return
 
-        usuario_asociado = correos[correo]
+        if correos[correo] != codigo:
+            await update.message.reply_text("❌ Código incorrecto.")
+            return
+
         solicitudes_pendientes[user.id] = correo
 
         botones = [
@@ -80,7 +84,7 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         teclado = InlineKeyboardMarkup(botones)
 
         await update.message.reply_text(
-            f"🔎 Correo validado ✅\nUsuario autorizado: {usuario_asociado}\n\nElige una opción:",
+            f"✅ Correo y código validados correctamente.\n\nElige una opción:",
             reply_markup=teclado
         )
 
@@ -142,32 +146,32 @@ async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Bienvenido al bot.\n\nUsa el comando:\n/buscar correo@ejemplo.com\nPara iniciar tu solicitud."
+        "👋 ¡Hola! Bienvenido al bot.\n\nUsa el comando:\n/buscar correo@ejemplo.com codigo"
     )
 
 async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❗ No entendí eso. Usa /start o /buscar.")
 
-# /add correo@ejemplo.com usuario
+# /add correo@ejemplo.com codigo
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ No tienes permiso para usar este comando.")
         return
 
     if len(context.args) < 2:
-        await update.message.reply_text("❗ Uso correcto: /add correo@example.com usuario")
+        await update.message.reply_text("❗ Uso correcto: /add correo@example.com codigo")
         return
 
     correo = context.args[0].strip().lower()
-    usuario = context.args[1].strip()
+    codigo = context.args[1].strip()
 
     correos = obtener_correos()
     if correo in correos:
         await update.message.reply_text("Ese correo ya está autorizado.")
         return
 
-    agregar_correo(correo, usuario)
-    await update.message.reply_text(f"✅ Correo añadido: {correo} con usuario: {usuario}")
+    agregar_correo(correo, codigo)
+    await update.message.reply_text(f"✅ Correo añadido: {correo} con código: {codigo}")
 
 # /delete correo@ejemplo.com
 async def delete_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
