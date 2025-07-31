@@ -24,16 +24,19 @@ ADMIN_ID = 6605787552
 
 solicitudes_pendientes = {}
 
-CORREOS_AUTORIZADOS_FILE = 'correos_autorizados.json'
+CORREOS_AUTORIZADOS_FILE = 'correos_autorizados.txt'  # <--- CAMBIO: ahora usamos .txt
 
+# 🔄 Guardar correos en .txt
 def guardar_correos_autorizados(correos):
     with open(CORREOS_AUTORIZADOS_FILE, 'w') as f:
-        json.dump(list(correos), f)
+        for correo in correos:
+            f.write(correo + '\n')
 
+# 🔄 Cargar correos desde .txt
 def cargar_correos_autorizados():
     try:
         with open(CORREOS_AUTORIZADOS_FILE, 'r') as f:
-            return set(json.load(f))
+            return set(line.strip() for line in f if line.strip())
     except FileNotFoundError:
         return set()
 
