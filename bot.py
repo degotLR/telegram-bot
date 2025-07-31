@@ -5,7 +5,6 @@ import threading
 import os
 import time
 import json
-from supabase import create_client, Client
 
 # --- Servidor Flask (para Render) ---
 app = Flask(__name__)
@@ -19,43 +18,40 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 # --- Configuración del bot ---
-# Archivo donde se guardan los correos
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 6605787552
-
+ARCHIVO_CORREOS = "correos_autorizados.json"
 solicitudes_pendientes = {}
 
-url = "https://nmmiaywhannbehqpofdr.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tbWlheXdoYW5uYmVocXBvZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MjI5MjUsImV4cCI6MjA2OTQ5ODkyNX0.JT0DCMLE5sQW9mNW8V-nHFGFp3nhbLGavBzroWNGKqI"
-supabase: Client = create_client(url, key)
+# --- Funciones de almacenamiento con JSON ---
 
-# Función para obtener todos los correos autorizados
 def obtener_correos():
-    response = supabase.table("correos_autorizados").select("correo").execute()
-    if response.error:
-        print("Error al obtener correos:", response.error)
-        return set()
-    return set([item["correo"] for item in response.data])
+    try:
+        with open(ARCHIVO_CORREOS, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-# Función para agregar correo
-def agregar_correo(correo):
-    # Evita duplicados con UPSERT
-    response = supabase.table("correos_autorizados").upsert({"correo": correo}).execute()
-    if response.error:
-        print("Error al agregar correo:", response.error)
-        return False
+def guardar_correos(data):
+    with open(ARCHIVO_CORREOS, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def agregar_correo(correo, usuario):
+    data = obtener_correos()
+    data[correo] = usuario
+    guardar_correos(data)
     return True
 
-# Función para eliminar correo
 def eliminar_correo(correo):
-    response = supabase.table("correos_autorizados").delete().eq("correo", correo).execute()
-    if response.error:
-        print("Error al eliminar correo:", response.error)
-        return False
-    return True
+    data = obtener_correos()
+    if correo in data:
+        del data[correo]
+        guardar_correos(data)
+        return True
+    return False
 
+# --- Comandos del bot ---
 
-# --- Funciones del bot ---
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
@@ -66,14 +62,15 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         correo = args[0].lower()
+        correos = obtener_correos()
 
-        correos_actuales = obtener_correos()
-        if correo not in correos_actuales:
+        if correo not in correos:
             await update.message.reply_text("❌ Ese correo no está autorizado.")
             return
 
+        usuario_asociado = correos[correo]
         solicitudes_pendientes[user.id] = correo
-        
+
         botones = [
             [InlineKeyboardButton("🏖️ Estoy de viaje", callback_data='viaje')],
             [InlineKeyboardButton("🏠 Actualizar hogar", callback_data='hogar')],
@@ -83,7 +80,7 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         teclado = InlineKeyboardMarkup(botones)
 
         await update.message.reply_text(
-            "🔎 Correo validado ✅\nAhora elige la opción:",
+            f"🔎 Correo validado ✅\nUsuario autorizado: {usuario_asociado}\n\nElige una opción:",
             reply_markup=teclado
         )
 
@@ -109,17 +106,12 @@ async def opcion_elegida(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         texto_opcion = opciones_texto.get(opcion, opcion)
 
-        await query.edit_message_text("🔍 Buscando datos... Por favor espera... Tiempo estimado (30-60 seg)...")
+        await query.edit_message_text("🔍 Procesando... Por favor espera (30-60 seg)...")
 
         bot = Bot(token=TOKEN)
         await bot.send_message(
             chat_id=ADMIN_ID,
-            text=(
-                f"📩 Solicitud recibida:\n"
-                f"👤 Usuario: @{query.from_user.username} (ID: {user_id})\n"
-                f"📧 Correo: {correo}\n"
-                f"🛠️ Opción elegida: {texto_opcion}"
-            )
+            text=f"📩 Solicitud recibida:\n👤 Usuario: @{query.from_user.username} (ID: {user_id})\n📧 Correo: {correo}\n🛠️ Opción elegida: {texto_opcion}"
         )
 
     except Exception as e:
@@ -150,41 +142,34 @@ async def enviar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Bienvenido al bot.\n\n"
-        "Usa el comando:\n"
-        "/buscar correo@ejemplo.com\n"
-        "Para iniciar tu solicitud."
+        "👋 ¡Hola! Bienvenido al bot.\n\nUsa el comando:\n/buscar correo@ejemplo.com\nPara iniciar tu solicitud."
     )
 
 async def comando_no_reconocido(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "❗ No entendí ese mensaje.\n\n"
-        "Usa alguno de estos comandos:\n"
-        "/start\n"
-        "/buscar\n"
-    )
+    await update.message.reply_text("❗ No entendí eso. Usa /start o /buscar.")
 
+# /add correo@ejemplo.com usuario
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ No tienes permiso para usar este comando.")
         return
 
-    if not context.args:
-        await update.message.reply_text("❗ Uso correcto: /add correo@example.com")
+    if len(context.args) < 2:
+        await update.message.reply_text("❗ Uso correcto: /add correo@example.com usuario")
         return
 
     correo = context.args[0].strip().lower()
+    usuario = context.args[1].strip()
 
-    correos_actuales = obtener_correos()
-    if correo in correos_actuales:
+    correos = obtener_correos()
+    if correo in correos:
         await update.message.reply_text("Ese correo ya está autorizado.")
         return
 
-    if agregar_correo(correo):
-        await update.message.reply_text(f"✅ Correo añadido: {correo}")
-    else:
-        await update.message.reply_text("❌ Error al añadir el correo.")
+    agregar_correo(correo, usuario)
+    await update.message.reply_text(f"✅ Correo añadido: {correo} con usuario: {usuario}")
 
+# /delete correo@ejemplo.com
 async def delete_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ No tienes permiso para usar este comando.")
@@ -195,17 +180,10 @@ async def delete_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     correo = context.args[0].strip().lower()
-
-    correos_actuales = obtener_correos()
-    if correo not in correos_actuales:
-        await update.message.reply_text("Ese correo no está autorizado.")
-        return
-
     if eliminar_correo(correo):
         await update.message.reply_text(f"✅ Correo eliminado: {correo}")
     else:
-        await update.message.reply_text("❌ Error al eliminar el correo.")
-
+        await update.message.reply_text("❌ Ese correo no está autorizado.")
 
 # --- Función principal con reinicio automático ---
 def main():
@@ -219,8 +197,9 @@ def main():
             app_telegram.add_handler(CallbackQueryHandler(opcion_elegida))
             app_telegram.add_handler(CommandHandler("enviar", enviar))
             app_telegram.add_handler(CommandHandler("start", start))
-            app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
             app_telegram.add_handler(CommandHandler("add", add_email))
+            app_telegram.add_handler(CommandHandler("delete", delete_email))
+            app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, comando_no_reconocido))
 
             print("🤖 Bot iniciado correctamente...")
             app_telegram.run_polling()
